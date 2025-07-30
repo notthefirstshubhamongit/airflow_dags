@@ -12,7 +12,7 @@ with DAG(
     dag_id="manual_trigger_only_dag",
     description="A DAG that runs only when manually triggered",
     start_date=datetime(2023, 1, 1),
-    schedule_interval=None,  # No automatic scheduling
+    schedule=None,  # No automatic scheduling
     catchup=False,           # Don't backfill old runs
     tags=["manual", "example"],
 ) as dag:
