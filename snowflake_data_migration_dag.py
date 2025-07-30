@@ -1042,6 +1042,5 @@ with DAG(
     migrate_data_task = PythonOperator(
         task_id='execute_full_migration',
         python_callable=execute_table_migration_task,
-        provide_context=True,
         dag=dag,
     )
