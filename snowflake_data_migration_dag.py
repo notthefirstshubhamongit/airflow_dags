@@ -357,8 +357,7 @@ class DataTypeMapper:
             return f"CHAR({min(length, 256)})" # Snowflake CHAR max is 256 characters
 
         return base_type
-
-    class DDLGenerator(LoggingMixin):
+class DDLGenerator(LoggingMixin):
     """Generate Snowflake DDL statements"""
 
     def __init__(self, db_type: str):
