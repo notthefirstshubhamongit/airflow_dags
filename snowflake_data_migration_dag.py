@@ -358,13 +358,6 @@ class DataTypeMapper:
 
         return base_type
 
-class DDLGenerator(LoggingMixin):
-    """Generate Snowflake DDL statements"""
-
-    def __init__(self, db_type: str):
-        self.db_type = db_type
-        self.mapper = DataTypeMapper()
-
     class DDLGenerator(LoggingMixin):
     """Generate Snowflake DDL statements"""
 
