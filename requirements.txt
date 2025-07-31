@@ -1,5 +1,7 @@
 # Core Airflow (specify version to match your deployment)
 apache-airflow==2.9.0
+apache-airflow-providers-cncf-kubernetes
+
 
 # Required Airflow extras for SQL DBs
 apache-airflow-providers-sqlite
