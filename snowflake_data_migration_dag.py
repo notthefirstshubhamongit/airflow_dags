@@ -1029,7 +1029,7 @@ def execute_table_migration_task(**context):
 with DAG(
     dag_id='snowflake_data_migration_dag',
     start_date=datetime.now() - timedelta(days=1),
-    schedule_interval=None,
+    schedule=None,
     catchup=False,
     tags=['data_migration', 'snowflake', 'sqlserver', 'fastapi'],
     params={
