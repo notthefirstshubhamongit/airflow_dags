@@ -367,7 +367,6 @@ class DDLGenerator(LoggingMixin):
 
     def generate_create_table_ddl(self, schema_name: str, table_name: str, columns: List[Dict]) -> str:
         """Generate CREATE TABLE DDL for Snowflake"""
-        # Ensure schema and table names are correctly quoted for Snowflake if they contain special chars or are case-sensitive
         sf_schema_name = f'"{schema_name.upper()}"'
         sf_table_name = f'"{table_name.upper()}"'
 
@@ -376,7 +375,7 @@ class DDLGenerator(LoggingMixin):
         column_definitions = []
         for col in columns:
             col_name = col['column_name']
-            sf_col_name = f'"{col_name.upper()}"' # Quote column names for Snowflake
+            sf_col_name = f'"{col_name.upper()}"'
 
             data_type = self.mapper.map_data_type(
                 col['data_type'],
@@ -389,12 +388,30 @@ class DDLGenerator(LoggingMixin):
             nullable = "" if col.get('nullable', 'Y') == 'Y' else " NOT NULL"
             default = ""
             default_val = col.get('data_default')
+            
             if default_val is not None:
-                # Basic attempt to format default value. More complex default values might need parsing.
-                if isinstance(default_val, str) and not (default_val.startswith("(") and default_val.endswith(")")):
-                    default = f" DEFAULT '{default_val}'" # Quote string defaults
+                # --- START OF PROPOSED CHANGES ---
+                # Check if the target data type is BOOLEAN and the default value is a numeric or string representation of a boolean.
+                if data_type.upper() == 'BOOLEAN':
+                    # Assuming a default of 1 or '1' means TRUE and 0 or '0' means FALSE
+                    if str(default_val).strip() in ['1', 'true', 'TRUE']:
+                        default = " DEFAULT TRUE"
+                    elif str(default_val).strip() in ['0', 'false', 'FALSE']:
+                        default = " DEFAULT FALSE"
+                    else:
+                        # Fallback for other cases
+                        default = f" DEFAULT {default_val}"
                 else:
-                    default = f" DEFAULT {default_val}" # Assume numeric/function defaults are valid
+                    # Existing logic for other data types
+                    if isinstance(default_val, str) and not (default_val.startswith("(") and default_val.endswith(")")):
+                        # Check if it's a function like 'getdate()' and handle it correctly
+                        if default_val.lower().startswith('getdate()') or default_val.lower().startswith('sysdate'):
+                             # Assuming a source SQL function maps to a Snowflake function
+                             default = f" DEFAULT {default_val}"
+                        else:
+                             default = f" DEFAULT '{default_val}'"
+                    else:
+                        default = f" DEFAULT {default_val}" # Assume numeric/function defaults are valid
 
             column_definitions.append(f"    {sf_col_name} {data_type}{nullable}{default}")
 
@@ -1012,7 +1029,7 @@ def execute_table_migration_task(**context):
 with DAG(
     dag_id='snowflake_data_migration_dag',
     start_date=datetime.now() - timedelta(days=1),
-    schedule=None,
+    schedule_interval=None,
     catchup=False,
     tags=['data_migration', 'snowflake', 'sqlserver', 'fastapi'],
     params={
@@ -1042,5 +1059,6 @@ with DAG(
     migrate_data_task = PythonOperator(
         task_id='execute_full_migration',
         python_callable=execute_table_migration_task,
+        provide_context=True,
         dag=dag,
     )
