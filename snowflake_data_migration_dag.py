@@ -365,6 +365,13 @@ class DDLGenerator(LoggingMixin):
         self.db_type = db_type
         self.mapper = DataTypeMapper()
 
+    class DDLGenerator(LoggingMixin):
+    """Generate Snowflake DDL statements"""
+
+    def __init__(self, db_type: str):
+        self.db_type = db_type
+        self.mapper = DataTypeMapper()
+
     def generate_create_table_ddl(self, schema_name: str, table_name: str, columns: List[Dict]) -> str:
         """Generate CREATE TABLE DDL for Snowflake"""
         sf_schema_name = f'"{schema_name.upper()}"'
@@ -388,36 +395,35 @@ class DDLGenerator(LoggingMixin):
             nullable = "" if col.get('nullable', 'Y') == 'Y' else " NOT NULL"
             default = ""
             default_val = col.get('data_default')
-            
+
             if default_val is not None:
-                # --- START OF PROPOSED CHANGES ---
-                # Check if the target data type is BOOLEAN and the default value is a numeric or string representation of a boolean.
+                # Handle BOOLEAN type explicitly
                 if data_type.upper() == 'BOOLEAN':
-                    # Assuming a default of 1 or '1' means TRUE and 0 or '0' means FALSE
-                    if str(default_val).strip() in ['1', 'true', 'TRUE']:
+                    val = str(default_val).strip().lower()
+                    if val in ['1', 'true']:
                         default = " DEFAULT TRUE"
-                    elif str(default_val).strip() in ['0', 'false', 'FALSE']:
+                    elif val in ['0', 'false']:
                         default = " DEFAULT FALSE"
                     else:
-                        # Fallback for other cases
-                        default = f" DEFAULT {default_val}"
-                else:
-                    # Existing logic for other data types
-                    if isinstance(default_val, str) and not (default_val.startswith("(") and default_val.endswith(")")):
-                        # Check if it's a function like 'getdate()' and handle it correctly
-                        if default_val.lower().startswith('getdate()') or default_val.lower().startswith('sysdate'):
-                             # Assuming a source SQL function maps to a Snowflake function
-                             default = f" DEFAULT {default_val}"
-                        else:
-                             default = f" DEFAULT '{default_val}'"
-                    else:
-                        default = f" DEFAULT {default_val}" # Assume numeric/function defaults are valid
+                        self.log.warning(f"Unhandled BOOLEAN default value for column '{col_name}': {default_val}")
+                        # Avoid assigning invalid default
+                        default = ""
 
-            column_definitions.append(f"    {sf_col_name} {data_type}{nullable}{default}")
+                else:
+                    # Handle known functions (like getdate or sysdate) without quoting
+                    val = str(default_val).strip()
+                    if val.lower() in ['getdate()', 'sysdate', 'current_timestamp']:
+                        default = f" DEFAULT {val}"
+                    elif isinstance(default_val, str) and not (val.startswith("(") and val.endswith(")")):
+                        default = f" DEFAULT '{val}'"
+                    else:
+                        default = f" DEFAULT {val}"
+
+            col_def = f"{sf_col_name} {data_type}{nullable}{default}"
+            column_definitions.append(col_def)
 
         ddl += ",\n".join(column_definitions)
         ddl += "\n);"
-        
         return ddl
 
     def generate_copy_into_ddl(self, schema_name: str, table_name: str, stage_name: str, file_format: str = 'CSV') -> str:
